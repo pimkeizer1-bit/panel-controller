@@ -17,6 +17,11 @@ class PIDController:
         self._prev_error = None
         self._last_time = None
 
+        # Last computed terms (for logging/tuning)
+        self.last_p = 0.0
+        self.last_i = 0.0
+        self.last_d = 0.0
+
     def reset(self):
         self._integral = 0.0
         self._prev_error = None
@@ -47,6 +52,10 @@ class PIDController:
         # Derivative
         d_term = self.kd * (error - self._prev_error) / dt
         self._prev_error = error
+
+        self.last_p = p_term
+        self.last_i = i_term
+        self.last_d = d_term
 
         output = p_term + i_term + d_term
 

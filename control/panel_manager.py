@@ -10,6 +10,7 @@ import time
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from control.data_logger import DataLogger
 from control.pid import PIDController, TimeProportionalOutput
 from profinet.controller import ProfinetController
 
@@ -59,6 +60,7 @@ class PanelManager(QObject):
         self._lock = threading.Lock()
         self._running = False
         self._thread: threading.Thread | None = None
+        self._logger = DataLogger()
 
     @property
     def contactor_on(self) -> bool:
@@ -102,6 +104,7 @@ class PanelManager(QObject):
         if self._running:
             return
         self._running = True
+        self._logger.start()
         self._thread = threading.Thread(target=self._control_loop, daemon=True)
         self._thread.start()
         log.info("Panel manager control loop started")
@@ -112,6 +115,7 @@ class PanelManager(QObject):
         if self._thread:
             self._thread.join(timeout=2.0)
             self._thread = None
+        self._logger.stop()
         self._controller.emergency_stop()
         log.info("Panel manager stopped")
 
@@ -191,6 +195,7 @@ class PanelManager(QObject):
                     ssrs=ssrs,
                 )
 
+                self._logger.log_tick(self._panels)
                 self.state_updated.emit()
 
             except Exception as e:
