@@ -48,11 +48,13 @@ class PIDController:
         # Proportional
         p_term = self.kp * error
 
-        # Integral — only accumulate when output is not saturated
+        # Integral with anti-windup: clamp I contribution to 50% of output range
+        # This prevents massive windup during the long ramp (43 min at 100%)
+        # while still allowing I to eliminate steady-state error
         candidate_integral = self._integral + error * dt
-        # Clamp integral contribution to [output_min, output_max]
-        max_i = self.output_max / self.ki if self.ki > 0 else float('inf')
-        min_i = self.output_min / self.ki if self.ki > 0 else float('-inf')
+        i_clamp = self.output_max * 0.5
+        max_i = i_clamp / self.ki if self.ki > 0 else float('inf')
+        min_i = -i_clamp / self.ki if self.ki > 0 else float('-inf')
         self._integral = max(min_i, min(max_i, candidate_integral))
         i_term = self.ki * self._integral
 

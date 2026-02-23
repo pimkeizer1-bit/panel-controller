@@ -36,7 +36,7 @@ class PanelState:
         self.fault_message = ""
 
         self.pid = PIDController(
-            kp=3.0, ki=0.05, kd=1.0,
+            kp=2.0, ki=0.08, kd=1.5,
             setpoint=setpoint,
             output_min=0.0, output_max=100.0,
         )
