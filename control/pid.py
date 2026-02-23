@@ -16,6 +16,7 @@ class PIDController:
         self._integral = 0.0
         self._prev_error = None
         self._last_time = None
+        self._prev_measurement = None
 
         # Last computed terms (for logging/tuning)
         self.last_p = 0.0
@@ -26,6 +27,7 @@ class PIDController:
         self._integral = 0.0
         self._prev_error = None
         self._last_time = None
+        self._prev_measurement = None
 
     def update(self, current_value: float) -> float:
         """Compute PID output (0-100%) based on current temperature."""
@@ -33,6 +35,7 @@ class PIDController:
         if self._last_time is None:
             self._last_time = now
             self._prev_error = self.setpoint - current_value
+            self._prev_measurement = current_value
             return 0.0
 
         dt = now - self._last_time
@@ -45,12 +48,17 @@ class PIDController:
         # Proportional
         p_term = self.kp * error
 
-        # Integral with anti-windup
-        self._integral += error * dt
+        # Integral — only accumulate when output is not saturated
+        candidate_integral = self._integral + error * dt
+        # Clamp integral contribution to [output_min, output_max]
+        max_i = self.output_max / self.ki if self.ki > 0 else float('inf')
+        min_i = self.output_min / self.ki if self.ki > 0 else float('-inf')
+        self._integral = max(min_i, min(max_i, candidate_integral))
         i_term = self.ki * self._integral
 
-        # Derivative
-        d_term = self.kd * (error - self._prev_error) / dt
+        # Derivative on measurement (not error) to avoid derivative kick
+        d_term = -self.kd * (current_value - self._prev_measurement) / dt
+        self._prev_measurement = current_value
         self._prev_error = error
 
         self.last_p = p_term
@@ -59,13 +67,8 @@ class PIDController:
 
         output = p_term + i_term + d_term
 
-        # Clamp output and apply anti-windup
-        if output > self.output_max:
-            self._integral -= error * dt  # undo integration
-            output = self.output_max
-        elif output < self.output_min:
-            self._integral -= error * dt
-            output = self.output_min
+        # Clamp output
+        output = max(self.output_min, min(self.output_max, output))
 
         return output
 
